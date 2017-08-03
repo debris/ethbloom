@@ -297,6 +297,14 @@ impl<'a> BloomRef<'a> {
 	}
 }
 
+impl<'a> From<&'a [u8; 256]> for BloomRef<'a> {
+	fn from(data: &'a [u8; 256]) -> Self {
+		BloomRef {
+			data: data
+		}
+	}
+}
+
 pub trait AsBloomRef {
 	fn as_bloom_ref(&self) -> BloomRef;
 }

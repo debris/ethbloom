@@ -1,0 +1,8 @@
+[package]
+name = "ethbloom"
+version = "0.1.0"
+authors = ["debris <marek.kotewicz@gmail.com>"]
+
+[dependencies]
+tiny-keccak = "1.3"
+rustc-hex = "1.0"

@@ -1,3 +1,31 @@
+//! 
+//! ```rust
+//! extern crate ethbloom;
+//! extern crate rustc_hex;
+//! use rustc_hex::FromHex;
+//! use ethbloom::{Bloom, Input};
+//!
+//! fn main() {
+//! 	let bloom: Bloom = "00000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002020000000000000000000000000000000000000000000008000000001000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".into();
+//! 	let address = "ef2d6d194084c2de36e0dabfce45d046b37d1106".from_hex().unwrap();
+//! 	let topic = "02c69be41d0b7e40352fc85be1cd65eb03d40ef8427a0ca4596b1ead9a00e9fc".from_hex().unwrap();
+//! 	
+//! 	let mut my_bloom = Bloom::default();
+//! 	assert!(!my_bloom.contains(Input::Raw(&address)));
+//! 	assert!(!my_bloom.contains(Input::Raw(&topic)));
+//!
+//! 	my_bloom.accrue(Input::Raw(&address));
+//! 	assert!(my_bloom.contains(Input::Raw(&address)));
+//! 	assert!(!my_bloom.contains(Input::Raw(&topic)));
+//! 	
+//! 	my_bloom.accrue(Input::Raw(&topic));
+//! 	assert!(my_bloom.contains(Input::Raw(&address)));
+//! 	assert!(my_bloom.contains(Input::Raw(&topic)));
+//! 	assert_eq!(my_bloom, bloom);
+//! 	}
+//! ```
+//!
+
 extern crate tiny_keccak;
 extern crate rustc_hex;
 

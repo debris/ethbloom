@@ -141,98 +141,11 @@ impl fmt::Display for Bloom {
 	}
 }
 
-impl<'a, 'b> ops::BitAnd<&'b [u8; 256]> for &'a Bloom {
-	type Output = Bloom;
-	
-	fn bitand(self, rhs: &'b [u8; 256]) -> Self::Output {
-		let mut result = Bloom::default();
-		for i in 0..self.data.len() {
-			result.data[i] = self.data[i] & rhs[i];
-		}
-		result
-	}
-}
-
-impl<'a, 'b> ops::BitAnd<&'b Bloom> for &'a Bloom {
-	type Output = Bloom;
-	
-	fn bitand(self, rhs: &'b Bloom) -> Self::Output {
-		self.bitand(&rhs.data)
-	}
-}
-
-impl<'a, 'b> ops::BitAnd<BloomRef<'b>> for &'a Bloom {
-	type Output = Bloom;
-	
-	fn bitand(self, rhs: BloomRef<'b>) -> Self::Output {
-		self.bitand(rhs.data)
-	}
-}
-
-impl<'a, 'b> ops::BitAnd<BloomRef<'b>> for BloomRef<'a> {
-	type Output = Bloom;
-	
-	fn bitand(self, rhs: BloomRef<'b>) -> Self::Output {
-		let mut result = Bloom::default();
-		for i in 0..self.data.len() {
-			result.data[i] = self.data[i] & rhs.data[i];
-		}
-		result
-	}
-}
-
-impl<'a, 'b> ops::BitOr<&'b Bloom> for &'a Bloom {
-	type Output = Bloom;
-	
-	fn bitor(self, rhs: &'b Bloom) -> Self::Output {
-		let mut result = Bloom::default();
-		for i in 0..self.data.len() {
-			result.data[i] = self.data[i] | rhs.data[i];
-		}
-		result
-	}
-}
-
-impl<'a, 'b> ops::BitOr<Input<'b>> for &'a Bloom {
-	type Output = Bloom;
-
-	fn bitor(self, rhs: Input<'b>) -> Self::Output {
-		let bloom: Bloom = rhs.into();
-		&bloom | self
-	}
-}
-
 impl<'a> From<Input<'a>> for Bloom {
 	fn from(input: Input<'a>) -> Bloom {
-		let p = BLOOM_BITS;
-
-		let mut result = Bloom::default();
-
-		let m = result.data.len();
-		let bloom_bits = m * 8;
-		let mask = bloom_bits - 1;
-		let bloom_bytes = (log2(bloom_bits) + 7) / 8;
-
-		let hash: Hash = input.into();
-
-		// must be a power of 2
-		assert_eq!(m & (m - 1), 0);
-		// out of range
-		assert!(p * bloom_bytes <= hash.len() as u32);
-
-		let mut ptr = 0;
-
-		for _ in 0..p {
-			let mut index = 0 as usize;
-			for _ in 0..bloom_bytes {
-				index = (index << 8) | hash[ptr] as usize;
-				ptr += 1;
-			}
-			index &= mask;
-			result.data[m - 1 - index / 8] |= 1 << (index % 8);
-		}
-
-		result
+		let mut bloom = Bloom::default();
+		bloom.accrue(input);
+		bloom
 	}
 }
 
@@ -255,16 +168,53 @@ impl Bloom {
 
 	pub fn contains<'a>(&self, input: Input<'a>) -> bool {
 		let bloom: Bloom = input.into();
-		self.contains_bloom(bloom)
+		self.contains_bloom(&bloom)
 	}
 
-	pub fn contains_bloom<B: AsBloomRef>(&self, bloom: B) -> bool {
-		let bloom_ref = bloom.as_bloom_ref();
-		(self & bloom_ref) == bloom_ref
+	pub fn contains_bloom<'a, B>(&self, bloom: B) -> bool where BloomRef<'a>: From<B> {
+		let bloom_ref: BloomRef = bloom.into();
+		// workaround for https://github.com/rust-lang/rust/issues/43644
+		self.contains_bloom_ref(bloom_ref)
+	}
+
+	fn contains_bloom_ref(&self, bloom: BloomRef) -> bool {
+		let self_ref: BloomRef = self.into();
+		self_ref.contains_bloom(bloom)
 	}
 
 	pub fn accrue<'a>(&mut self, input: Input<'a>) {
-		*self = (self as &Self) | input;
+		let p = BLOOM_BITS;
+
+		let m = self.data.len();
+		let bloom_bits = m * 8;
+		let mask = bloom_bits - 1;
+		let bloom_bytes = (log2(bloom_bits) + 7) / 8;
+
+		let hash: Hash = input.into();
+
+		// must be a power of 2
+		assert_eq!(m & (m - 1), 0);
+		// out of range
+		assert!(p * bloom_bytes <= hash.len() as u32);
+
+		let mut ptr = 0;
+
+		for _ in 0..p {
+			let mut index = 0 as usize;
+			for _ in 0..bloom_bytes {
+				index = (index << 8) | hash[ptr] as usize;
+				ptr += 1;
+			}
+			index &= mask;
+			self.data[m - 1 - index / 8] |= 1 << (index % 8);
+		}
+	}
+
+	pub fn accrue_bloom<'a, B>(&mut self, bloom: B) where BloomRef<'a>: From<B> {
+		let bloom_ref: BloomRef = bloom.into();
+		for i in 0..self.data.len() {
+			self.data[i] |= bloom_ref.data[i];
+		}
 	}
 
 	pub fn data(&self) -> &[u8; 256] {
@@ -284,12 +234,14 @@ impl<'a> BloomRef<'a> {
 
 	pub fn contains<'b>(&self, input: Input<'b>) -> bool {
 		let bloom: Bloom = input.into();
-		self.contains_bloom(bloom)
+		self.contains_bloom(&bloom)
 	}
 	
-	pub fn contains_bloom<B: AsBloomRef>(&self, bloom: B) -> bool {
-		let bloom_ref = bloom.as_bloom_ref();
-		(*self & bloom_ref) == bloom_ref
+	pub fn contains_bloom<'b, B>(&self, bloom: B) -> bool where BloomRef<'b>: From<B> {
+		let bloom_ref: BloomRef = bloom.into();
+		self.data.iter()
+			.zip(bloom_ref.data.iter())
+			.all(|(a, b)| (*a & *b) == *b)
 	}
 
 	pub fn data(&self) -> &'a [u8; 256] {
@@ -305,36 +257,10 @@ impl<'a> From<&'a [u8; 256]> for BloomRef<'a> {
 	}
 }
 
-pub trait AsBloomRef {
-	fn as_bloom_ref(&self) -> BloomRef;
-}
-
-impl AsBloomRef for Bloom {
-	fn as_bloom_ref(&self) -> BloomRef {
+impl<'a> From<&'a Bloom> for BloomRef<'a> {
+	fn from(bloom: &'a Bloom) -> Self {
 		BloomRef {
-			data: &self.data
-		}
-	}
-}
-
-impl<'a> AsBloomRef for &'a Bloom {
-	fn as_bloom_ref(&self) -> BloomRef {
-		BloomRef {
-			data: &self.data
-		}
-	}
-}
-
-impl<'a> AsBloomRef for BloomRef<'a> {
-	fn as_bloom_ref(&self) -> BloomRef {
-		*self
-	}
-}
-
-impl<'a> AsBloomRef for &'a [u8; 256] {
-	fn as_bloom_ref(&self) -> BloomRef {
-		BloomRef {
-			data: *self
+			data: &bloom.data
 		}
 	}
 }

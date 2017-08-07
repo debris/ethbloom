@@ -127,6 +127,14 @@ impl<'a> PartialEq<BloomRef<'a>> for Bloom {
 	}
 }
 
+impl Clone for Bloom {
+	fn clone(&self) -> Self {
+		let mut result = Bloom::default();
+		result.data.copy_from_slice(&self.data);
+		result
+	}
+}
+
 impl fmt::Debug for Bloom {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		f.debug_struct("Bloom")

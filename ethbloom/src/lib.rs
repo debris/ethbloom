@@ -28,6 +28,8 @@
 
 extern crate tiny_keccak;
 extern crate rustc_hex;
+#[macro_use]
+extern crate crunchy;
 
 use std::{ops, fmt, mem, str};
 use tiny_keccak::keccak256;
@@ -215,14 +217,18 @@ impl Bloom {
 
 		let mut ptr = 0;
 
-		for _ in 0..p {
-			let mut index = 0 as usize;
-			for _ in 0..bloom_bytes {
-				index = (index << 8) | hash[ptr] as usize;
-				ptr += 1;
+		assert_eq!(BLOOM_BITS, 3);
+		unroll! {
+			for i in 0..3 {
+				let _ = i;
+				let mut index = 0 as usize;
+				for _ in 0..bloom_bytes {
+					index = (index << 8) | hash[ptr] as usize;
+					ptr += 1;
+				}
+				index &= mask;
+				self.data[m - 1 - index / 8] |= 1 << (index % 8);
 			}
-			index &= mask;
-			self.data[m - 1 - index / 8] |= 1 << (index % 8);
 		}
 	}
 
@@ -230,8 +236,10 @@ impl Bloom {
 		let bloom_ref: BloomRef = bloom.into();
 		assert_eq!(self.data.len(), 256);
 		assert_eq!(bloom_ref.data.len(), 256);
-		for i in 0..self.data.len() {
-			self.data[i] |= bloom_ref.data[i];
+		unroll! {
+			for i in 0..256 {
+				self.data[255 - i] |= bloom_ref.data[255 - i];
+			}
 		}
 	}
 
@@ -259,11 +267,13 @@ impl<'a> BloomRef<'a> {
 		let bloom_ref: BloomRef = bloom.into();
 		assert_eq!(self.data.len(), 256);
 		assert_eq!(bloom_ref.data.len(), 256);
-		for i in 0..self.data.len() {
-			let a = self.data[i];
-			let b = bloom_ref.data[i];
-			if (a & b) != b {
-				return false;
+		unroll! {
+			for i in 0..256 {
+				let a = self.data[255 - i];
+				let b = bloom_ref.data[255 - i];
+				if (a & b) != b {
+					return false;
+				}
 			}
 		}
 		true

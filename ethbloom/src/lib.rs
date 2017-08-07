@@ -163,6 +163,14 @@ impl From<&'static str> for Bloom {
 	}
 }
 
+impl From<[u8; 256]> for Bloom {
+	fn from(data: [u8; 256]) -> Bloom {
+		Bloom {
+			data: data
+		}
+	}
+}
+
 impl From<Bloom> for [u8; 256] {
 	fn from(bloom: Bloom) -> [u8; 256] {
 		bloom.data

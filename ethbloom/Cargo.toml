@@ -1,6 +1,6 @@
 [package]
 name = "ethbloom"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["debris <marek.kotewicz@gmail.com>"]
 description = "Ethereum bloom filter"
 license = "MIT"

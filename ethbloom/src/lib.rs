@@ -212,6 +212,8 @@ impl Bloom {
 
 	pub fn accrue_bloom<'a, B>(&mut self, bloom: B) where BloomRef<'a>: From<B> {
 		let bloom_ref: BloomRef = bloom.into();
+		assert_eq!(self.data.len(), 256);
+		assert_eq!(bloom_ref.data.len(), 256);
 		for i in 0..self.data.len() {
 			self.data[i] |= bloom_ref.data[i];
 		}
@@ -239,9 +241,16 @@ impl<'a> BloomRef<'a> {
 	
 	pub fn contains_bloom<'b, B>(&self, bloom: B) -> bool where BloomRef<'b>: From<B> {
 		let bloom_ref: BloomRef = bloom.into();
-		self.data.iter()
-			.zip(bloom_ref.data.iter())
-			.all(|(a, b)| (*a & *b) == *b)
+		assert_eq!(self.data.len(), 256);
+		assert_eq!(bloom_ref.data.len(), 256);
+		for i in 0..self.data.len() {
+			let a = self.data[i];
+			let b = bloom_ref.data[i];
+			if (a & b) != b {
+				return false;
+			}
+		}
+		true
 	}
 
 	pub fn data(&self) -> &'a [u8; 256] {

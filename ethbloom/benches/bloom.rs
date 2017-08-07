@@ -95,3 +95,14 @@ fn does_not_contain_hash(b: &mut Bencher) {
 		assert!(!bloom.contains(Input::Hash(&dummy2)));
 	});
 }
+
+#[bench]
+fn does_not_contain_random_hash(b: &mut Bencher) {
+	let bloom = test_bloom();
+	let dummy: Vec<_> = (0..255u8).into_iter().map(|i| keccak256(&[i])).collect();
+	b.iter(|| {
+		for d in &dummy {
+			assert!(!bloom.contains(Input::Hash(d)));
+		}
+	});
+}

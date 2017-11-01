@@ -236,10 +236,8 @@ impl Bloom {
 		let bloom_ref: BloomRef = bloom.into();
 		assert_eq!(self.data.len(), 256);
 		assert_eq!(bloom_ref.data.len(), 256);
-		unroll! {
-			for i in 0..256 {
-				self.data[255 - i] |= bloom_ref.data[255 - i];
-			}
+		for i in 0..256 {
+			self.data[i] |= bloom_ref.data[i];
 		}
 	}
 
@@ -267,13 +265,11 @@ impl<'a> BloomRef<'a> {
 		let bloom_ref: BloomRef = bloom.into();
 		assert_eq!(self.data.len(), 256);
 		assert_eq!(bloom_ref.data.len(), 256);
-		unroll! {
-			for i in 0..256 {
-				let a = self.data[255 - i];
-				let b = bloom_ref.data[255 - i];
-				if (a & b) != b {
-					return false;
-				}
+		for i in 0..256 {
+			let a = self.data[i];
+			let b = bloom_ref.data[i];
+			if (a & b) != b {
+				return false;
 			}
 		}
 		true
@@ -305,8 +301,8 @@ mod tests {
 	use rustc_hex::FromHex;
 	use {Bloom, Input};
 
-    #[test]
-    fn it_works() {
+	#[test]
+	fn it_works() {
 		let bloom: Bloom = "00000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002020000000000000000000000000000000000000000000008000000001000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".into();
 		let address = "ef2d6d194084c2de36e0dabfce45d046b37d1106".from_hex().unwrap();
 		let topic = "02c69be41d0b7e40352fc85be1cd65eb03d40ef8427a0ca4596b1ead9a00e9fc".from_hex().unwrap();
@@ -323,5 +319,5 @@ mod tests {
 		assert!(my_bloom.contains(Input::Raw(&address)));
 		assert!(my_bloom.contains(Input::Raw(&topic)));
 		assert_eq!(my_bloom, bloom);
-    }
+	}
 }

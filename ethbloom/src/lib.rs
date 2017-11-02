@@ -31,6 +31,10 @@ extern crate rustc_hex;
 #[macro_use]
 extern crate crunchy;
 
+#[cfg(feature="heapsizeof")]
+#[macro_use]
+extern crate heapsize;
+
 use std::{ops, fmt, mem, str};
 use tiny_keccak::keccak256;
 use rustc_hex::{ToHex, FromHex, FromHexError};
@@ -120,6 +124,8 @@ impl PartialEq for Bloom {
 		s_ref.eq(o_ref)
 	}
 }
+
+impl Eq for Bloom {}
 
 impl<'a> PartialEq<BloomRef<'a>> for Bloom {
 	fn eq(&self, other: &BloomRef<'a>) -> bool {
@@ -295,6 +301,9 @@ impl<'a> From<&'a Bloom> for BloomRef<'a> {
 		}
 	}
 }
+
+#[cfg(feature="heapsizeof")]
+known_heap_size!(0, Bloom);
 
 #[cfg(test)]
 mod tests {
